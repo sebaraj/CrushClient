@@ -4,8 +4,8 @@ import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../contexts/AuthContext";
 
 interface AuthResponse {
-  jwtToken: string;
-  isNewUser: boolean;
+  email: string;
+  active: boolean;
 }
 
 const StartPage: React.FC = () => {
@@ -36,18 +36,21 @@ const StartPage: React.FC = () => {
       }
 
       const data: AuthResponse = await response.json();
-
+      const { active, email } = data;
+      console.log(data);
       setAuthInfo(
-        data.jwtToken,
-        extractEmailFromToken(tokenResponse.credential),
+        tokenResponse.credential,
+        email,
+        // extractEmailFromToken(tokenResponse.credential),
       );
 
-      if (data.isNewUser) {
+      if (!active) {
         navigate("/signup");
       } else {
         navigate("/user");
       }
     } catch (err: any) {
+      console.error(err);
       setError(err.message || "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
@@ -58,11 +61,11 @@ const StartPage: React.FC = () => {
     setError("Google authentication failed. Please try again.");
   };
 
-  const extractEmailFromToken = (idToken: string): string => {
-    // TODO: parse token to get email
-    console.log(idToken);
-    return "bryan.sebaraj@yale.edu";
-  };
+  // const extractEmailFromToken = (idToken: string): string => {
+  // // TODO: parse token to get email
+  // console.log(idToken);
+  // return "bryan.sebaraj@yale.edu";
+  // };
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100 p-6 text-center">

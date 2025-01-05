@@ -3,10 +3,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Navigation from "../components/Navigation";
 import { UserData } from "../interfaces/User";
+import { allInterests } from "../data/interests";
 
 const UserPage: React.FC = () => {
   const { token, email } = useAuth();
   const navigate = useNavigate();
+
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,32 +16,63 @@ const UserPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!email || !token) {
-      navigate("/");
-      return;
+  const parseIncomingData = (data: any): UserData => {
+    if (Array.isArray(data.interests)) {
+      data.interest_1 = data.interests[0] ?? "";
+      data.interest_2 = data.interests[1] ?? "";
+      data.interest_3 = data.interests[2] ?? "";
+      data.interest_4 = data.interests[3] ?? "";
+      data.interest_5 = data.interests[4] ?? "";
+      delete data.interests;
     }
-    setLoading(true);
 
-    fetch(`https://api.yalecrush.com/v1/user/${email}`, {
+    if (Array.isArray(data.answers)) {
+      data.question1 = data.answers[0] ?? 3;
+      data.question2 = data.answers[1] ?? 3;
+      data.question3 = data.answers[2] ?? 3;
+      data.question4 = data.answers[3] ?? 3;
+      data.question5 = data.answers[4] ?? 3;
+      data.question6 = data.answers[5] ?? 3;
+      data.question7 = data.answers[6] ?? 3;
+      data.question8 = data.answers[7] ?? 3;
+      data.question9 = data.answers[8] ?? 3;
+      data.question10 = data.answers[9] ?? 3;
+      data.question11 = data.answers[10] ?? 3;
+      data.question12 = data.answers[11] ?? 3;
+      delete data.answers;
+    }
+
+    return data;
+  };
+
+  useEffect(() => {
+    // if (!email || !token) {
+    //   navigate("/");
+    //   return;
+    // }
+
+    setLoading(true);
+    fetch(`https://api.yalecrush.com/v1/user/info/${email}`, {
       method: "GET",
       headers: {
-        Authorization: `Authorization ${token}`,
+        Authorization: token || "",
         "Content-Type": "application/json",
       },
     })
       .then(async (res) => {
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.message || "Failed to load user data");
+          console.log("Error data from user/info: ", errorData);
+          // change to throw error
         }
         return res.json();
       })
       .then((data: UserData) => {
-        setUserData(data);
+        const transformedData = parseIncomingData(data);
+        setUserData(transformedData);
       })
       .catch((err: any) => {
-        setError(err.message || "Error loading user data");
+        console.error("Fetch error for user info:", err);
       })
       .finally(() => {
         setLoading(false);
@@ -49,29 +82,35 @@ const UserPage: React.FC = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
+    if (!userData) return;
     const { name, type, value } = e.target;
 
-    if (type === "checkbox") {
-      const { checked } = e.target as HTMLInputElement;
-      setUserData((prev) => {
-        if (!prev) return prev;
+    setUserData((prev) => {
+      if (!prev) return prev;
+
+      if (type === "checkbox") {
+        const { checked } = e.target as HTMLInputElement;
         return {
           ...prev,
           [name]: checked,
         };
-      });
-    } else {
-      setUserData((prev) => {
-        if (!prev) return prev;
+      }
+
+      if (name.startsWith("question")) {
         return {
           ...prev,
-          [name]: value,
+          [name]: parseInt(value, 10),
         };
-      });
-    }
+      }
+
+      return {
+        ...prev,
+        [name]: value,
+      };
+    });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUserInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !token || !userData) return;
 
@@ -79,27 +118,106 @@ const UserPage: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `https://api.yalecrush.com/v1/user/${email}`,
+      const clone = { ...userData } as any;
+      delete clone.answers;
+      delete clone.interests;
+      delete clone.question1;
+      delete clone.question2;
+      delete clone.question3;
+      delete clone.question4;
+      delete clone.question5;
+      delete clone.question6;
+      delete clone.question7;
+      delete clone.question8;
+      delete clone.question9;
+      delete clone.question10;
+      delete clone.question11;
+      delete clone.question12;
+
+      const resp = await fetch(
+        `https://api.yalecrush.com/v1/user/info/${email}`,
         {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: token || "",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(userData),
+          body: JSON.stringify(clone),
         },
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!resp.ok) {
+        const errorData = await resp.json();
         throw new Error(errorData.message || "Failed to update user data");
       }
-      const updated = await response.json();
-      setUserData(updated);
-      alert("User info updated successfully!");
+
+      console.log("User info updated successfully");
     } catch (err: any) {
       setError(err.message || "Error updating user data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnswersSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !token || !userData) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const {
+        question1,
+        question2,
+        question3,
+        question4,
+        question5,
+        question6,
+        question7,
+        question8,
+        question9,
+        question10,
+        question11,
+        question12,
+      } = userData;
+
+      const bodyObj = {
+        question1: question1 ?? 3,
+        question2: question2 ?? 3,
+        question3: question3 ?? 3,
+        question4: question4 ?? 3,
+        question5: question5 ?? 3,
+        question6: question6 ?? 3,
+        question7: question7 ?? 3,
+        question8: question8 ?? 3,
+        question9: question9 ?? 3,
+        question10: question10 ?? 3,
+        question11: question11 ?? 3,
+        question12: question12 ?? 3,
+      };
+
+      const resp = await fetch(
+        `https://api.yalecrush.com/v1/user/answers/${email}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: token || "",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(bodyObj),
+        },
+      );
+
+      if (!resp.ok) {
+        const errorData = await resp.json();
+        throw new Error(errorData.message || "Failed to update answers");
+      }
+
+      console.log("Answers updated successfully (no page refresh or alert)");
+      // Not refreshing the page, not sending a notification or alert
+    } catch (err: any) {
+      setError(err.message || "Error updating answers");
     } finally {
       setLoading(false);
     }
@@ -113,17 +231,17 @@ const UserPage: React.FC = () => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !email || !token) return;
     setUploading(true);
     setUploadError(null);
 
     try {
       const presignedResp = await fetch(
-        "https://api.yalecrush.com/v1/user/search",
+        `https://api.yalecrush.com/v1/user/picture/${email}`,
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: token || "",
           },
         },
       );
@@ -149,31 +267,8 @@ const UserPage: React.FC = () => {
         throw new Error("Failed to upload file to S3");
       }
 
-      const newS3Link = url.split("?")[0];
-
-      const updateResponse = await fetch(
-        `https://api.yalecrush.com/v1/user/${email}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ...userData,
-            picture_s3_url: newS3Link,
-          }),
-        },
-      );
-
-      if (!updateResponse.ok) {
-        throw new Error("Failed to update user's S3 URL");
-      }
-
-      const updatedUserData = await updateResponse.json();
-      setUserData(updatedUserData);
+      console.log("Profile picture uploaded successfully");
       setSelectedFile(null);
-      alert("Profile picture updated successfully!");
     } catch (err: any) {
       setUploadError(err.message);
     } finally {
@@ -194,6 +289,7 @@ const UserPage: React.FC = () => {
 
         {loading && <p className="text-gray-600">Loading...</p>}
         {error && <p className="text-red-500 mb-2">{error}</p>}
+
         {!loading && userData && (
           <>
             <div className="flex flex-col items-center mb-6">
@@ -208,8 +304,7 @@ const UserPage: React.FC = () => {
               />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name */}
+            <form onSubmit={handleUserInfoSubmit} className="space-y-4 mb-8">
               <div>
                 <label className="block font-semibold mb-1" htmlFor="name">
                   Name
@@ -224,7 +319,6 @@ const UserPage: React.FC = () => {
                 />
               </div>
 
-              {/* TODO: get pictures (s3 website bucket or adjacent bucket to user images) */}
               <div>
                 <label
                   className="block font-semibold mb-1"
@@ -232,11 +326,108 @@ const UserPage: React.FC = () => {
                 >
                   Residential College
                 </label>
-                <input
+                <select
                   id="residential_college"
                   name="residential_college"
-                  type="text"
                   value={userData.residential_college || ""}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded px-2 py-1"
+                >
+                  <option value="">Select a Residential College</option>
+                  <option value="Benjamin Franklin">Benjamin Franklin</option>
+                  <option value="Berkeley">Berkeley</option>
+                  <option value="Branford">Branford</option>
+                  <option value="Davenport">Davenport</option>
+                  <option value="Ezra Stiles">Ezra Stiles</option>
+                  <option value="Grace Hopper">Grace Hopper</option>
+                  <option value="Jonathan Edwards">Jonathan Edwards</option>
+                  <option value="Morse">Morse</option>
+                  <option value="Pauli Murray">Pauli Murray</option>
+                  <option value="Pierson">Pierson</option>
+                  <option value="Saybrook">Saybrook</option>
+                  <option value="Silliman">Silliman</option>
+                  <option value="Timothy Dwight">Timothy Dwight</option>
+                  <option value="Trumbull">Trumbull</option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  className="block font-semibold mb-1"
+                  htmlFor="graduating_year"
+                >
+                  Graduating Year
+                </label>
+                <input
+                  id="graduating_year"
+                  name="graduating_year"
+                  type="text"
+                  value={userData.graduating_year || ""}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded px-2 py-1"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1" htmlFor="gender">
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  name="gender"
+                  value={userData.gender || 0}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded px-2 py-1"
+                >
+                  <option value="0">Select a Gender</option>
+                  <option value="16">Cis-Female</option>
+                  <option value="8">Trans-Female</option>
+                  <option value="4">Cis-Male</option>
+                  <option value="2">Trans-Male</option>
+                  <option value="1">Non-binary</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1" htmlFor="instagram">
+                  Instagram
+                </label>
+                <input
+                  id="instagram"
+                  name="instagram"
+                  type="text"
+                  value={userData.instagram}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded px-2 py-1"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1" htmlFor="snapchat">
+                  Snapchat
+                </label>
+                <input
+                  id="snapchat"
+                  name="snapchat"
+                  type="text"
+                  value={userData.snapchat}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded px-2 py-1"
+                />
+              </div>
+
+              <div>
+                <label
+                  className="block font-semibold mb-1"
+                  htmlFor="phone_number"
+                >
+                  Phone Number
+                </label>
+                <input
+                  id="phone_number"
+                  name="phone_number"
+                  type="text"
+                  value={userData.phone_number}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded px-2 py-1"
                 />
@@ -260,16 +451,85 @@ const UserPage: React.FC = () => {
                 <span>Receive notifications?</span>
               </div>
 
+              {[1, 2, 3, 4, 5].map((i) => {
+                const fieldName = `interest_${i}` as keyof UserData;
+                return (
+                  <div key={i}>
+                    <label
+                      className="block font-semibold mb-1"
+                      htmlFor={fieldName}
+                    >
+                      Interest {i}
+                    </label>
+                    <select
+                      id={fieldName}
+                      name={fieldName}
+                      value={
+                        typeof userData[fieldName] === "string"
+                          ? (userData[fieldName] as string)
+                          : ""
+                      }
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded px-2 py-1"
+                    >
+                      <option value="">Select an Interest</option>
+                      {allInterests.map((interestItem) => (
+                        <option key={interestItem} value={interestItem}>
+                          {interestItem}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+
               <button
                 type="submit"
                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                disabled={loading}
               >
-                Update
+                Update Basic Info
               </button>
             </form>
 
-            <div className="mt-8">
+            <form onSubmit={handleAnswersSubmit} className="space-y-4 mb-8">
+              <h2 className="text-xl font-semibold">Questions (1-5 scale)</h2>
+
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((qNum) => {
+                const fieldName = `question${qNum}` as keyof UserData;
+                const val = userData[fieldName] ?? 1;
+
+                return (
+                  <div key={qNum}>
+                    <label
+                      className="block font-semibold mb-1"
+                      htmlFor={fieldName}
+                    >
+                      Question {qNum}
+                    </label>
+                    <input
+                      id={fieldName}
+                      name={fieldName}
+                      type="range"
+                      min="1"
+                      max="5"
+                      step="1"
+                      value={val}
+                      onChange={handleChange}
+                    />
+                    <p>Current value: {val}</p>
+                  </div>
+                );
+              })}
+
+              <button
+                type="submit"
+                className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+              >
+                Update Answers
+              </button>
+            </form>
+
+            <div>
               <h2 className="text-xl font-semibold mb-2">
                 Change Profile Image
               </h2>
